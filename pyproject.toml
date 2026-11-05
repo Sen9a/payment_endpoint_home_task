@@ -1,0 +1,29 @@
+[project]
+name = "payment-api"
+version = "0.1.0"
+description = "Payment endpoint for the online shop take-home task (Flask + SQLAlchemy + PostgreSQL)"
+authors = [
+    {name = "sen9a"}
+]
+requires-python = ">=3.12,<4.0"
+dependencies = [
+    "flask (>=3.1.3,<4.0.0)",
+    "sqlalchemy (>=2.0.36,<3.0.0)",
+    "alembic (>=1.14.0,<2.0.0)",
+    "psycopg[binary] (>=3.2.3,<4.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.2.0,<10.0.0)",
+    "factory-boy (>=3.3.3,<4.0.0)"
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

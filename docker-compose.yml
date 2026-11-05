@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: payment_shop
+    ports:
+      - "5432:5432"
+    volumes:
+      # initdb scripts run once on first boot: create the test database,
+      # then apply the task's base schema (users/products/carts/...)
+      - ./compose/db/00_create_test_db.sql:/docker-entrypoint-initdb.d/00_create_test_db.sql:ro
+      - ./SQLMigrations.sql:/docker-entrypoint-initdb.d/10_base_schema.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payment_shop"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: compose/api/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URI: postgresql+psycopg://postgres:postgres@db:5432/payment_shop
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PROVIDER_FAIL_TOKEN_MARKER: ${PROVIDER_FAIL_TOKEN_MARKER:-fail}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
