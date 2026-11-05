@@ -28,13 +28,13 @@ def _refresh(db, instance):
 def test_health(client):
     response = client.get('/health')
     assert response.status_code == 200
-    assert response.json['status'] == 'Healthy'
+    assert response.json()['status'] == 'Healthy'
 
 
 def test_start_payment_success(client, db, payable_cart):
     response = client.post(f'/carts/{payable_cart.cart.id}/payments')
     assert response.status_code == 201
-    body = response.json
+    body = response.json()
     assert body['status'] == PaymentStatus.SUCCEEDED
     assert body['amount'] == '45.00'
     assert body['currency'] == 'USD'
@@ -56,7 +56,7 @@ def test_payment_response_has_exact_public_shape(client, payable_cart):
     silently."""
     response = client.post(f'/carts/{payable_cart.cart.id}/payments')
     assert response.status_code == 201
-    assert set(response.json) == PUBLIC_PAYMENT_FIELDS
+    assert set(response.json()) == PUBLIC_PAYMENT_FIELDS
 
 
 def test_payment_total_sums_quantities(client, db):
@@ -70,7 +70,7 @@ def test_payment_total_sums_quantities(client, db):
 
     response = client.post(f'/carts/{cart.id}/payments')
     assert response.status_code == 201
-    assert response.json['amount'] == '70.00'
+    assert response.json()['amount'] == '70.00'
 
 
 def test_payment_total_uses_price_frozen_on_cart_item(client, db, payable_cart):
@@ -82,7 +82,7 @@ def test_payment_total_uses_price_frozen_on_cart_item(client, db, payable_cart):
 
     response = client.post(f'/carts/{payable_cart.cart.id}/payments')
     assert response.status_code == 201
-    assert response.json['amount'] == '45.00'
+    assert response.json()['amount'] == '45.00'
 
 
 def test_payment_with_explicit_payment_method(client, db, payable_cart):
@@ -92,7 +92,7 @@ def test_payment_with_explicit_payment_method(client, db, payable_cart):
     response = client.post(f'/carts/{payable_cart.cart.id}/payments',
                            json={'payment_method_id': str(other_method.id)})
     assert response.status_code == 201
-    payment = _get_payment(db, response.json['payment_id'])
+    payment = _get_payment(db, response.json()['payment_id'])
     assert payment.payment_method_id == other_method.id
 
 
@@ -102,11 +102,14 @@ def test_payment_with_explicit_payment_method(client, db, payable_cart):
 def test_payment_for_missing_cart(client):
     response = client.post(f'/carts/{uuid.uuid4()}/payments')
     assert response.status_code == 404
-    assert response.json['error']['code'] == 'CART_NOT_FOUND'
+    assert response.json()['error']['code'] == 'CART_NOT_FOUND'
 
 
 def test_payment_for_non_uuid_cart_id(client):
-    assert client.post('/carts/not-a-uuid/payments').status_code == 404
+    # rejected by the OpenAPI uuid format at request-validation level
+    response = client.post('/carts/not-a-uuid/payments')
+    assert response.status_code == 400
+    assert response.json()['error']['code'] == 'VALIDATION_ERROR'
 
 
 def test_payment_for_checked_out_cart(client, db, payable_cart):
@@ -115,7 +118,7 @@ def test_payment_for_checked_out_cart(client, db, payable_cart):
 
     response = client.post(f'/carts/{payable_cart.cart.id}/payments')
     assert response.status_code == 409
-    assert response.json['error']['code'] == 'CART_ALREADY_CHECKED_OUT'
+    assert response.json()['error']['code'] == 'CART_ALREADY_CHECKED_OUT'
 
 
 def test_payment_for_abandoned_cart(client, db, payable_cart):
@@ -124,7 +127,7 @@ def test_payment_for_abandoned_cart(client, db, payable_cart):
 
     response = client.post(f'/carts/{payable_cart.cart.id}/payments')
     assert response.status_code == 409
-    assert response.json['error']['code'] == 'CART_NOT_PAYABLE'
+    assert response.json()['error']['code'] == 'CART_NOT_PAYABLE'
 
 
 def test_second_payment_attempt_is_rejected(client, payable_cart):
@@ -133,7 +136,7 @@ def test_second_payment_attempt_is_rejected(client, payable_cart):
     # a retried/duplicate request must not charge the card again
     second = client.post(f'/carts/{payable_cart.cart.id}/payments')
     assert second.status_code == 409
-    assert second.json['error']['code'] == 'CART_ALREADY_CHECKED_OUT'
+    assert second.json()['error']['code'] == 'CART_ALREADY_CHECKED_OUT'
 
 
 def test_payment_for_empty_cart(client, db):
@@ -143,7 +146,7 @@ def test_payment_for_empty_cart(client, db):
 
     response = client.post(f'/carts/{cart.id}/payments')
     assert response.status_code == 400
-    assert response.json['error']['code'] == 'EMPTY_CART'
+    assert response.json()['error']['code'] == 'EMPTY_CART'
 
 
 def test_payment_for_mixed_currency_cart(client, db):
@@ -155,7 +158,7 @@ def test_payment_for_mixed_currency_cart(client, db):
 
     response = client.post(f'/carts/{cart.id}/payments')
     assert response.status_code == 409
-    assert response.json['error']['code'] == 'MIXED_CURRENCIES'
+    assert response.json()['error']['code'] == 'MIXED_CURRENCIES'
 
 
 # --- payment method ---------------------------------------------------------
@@ -168,7 +171,7 @@ def test_payment_without_payment_method(client, db):
 
     response = client.post(f'/carts/{cart.id}/payments')
     assert response.status_code == 400
-    assert response.json['error']['code'] == 'NO_PAYMENT_METHOD'
+    assert response.json()['error']['code'] == 'NO_PAYMENT_METHOD'
 
 
 def test_payment_method_must_belong_to_cart_owner(client, db, payable_cart):
@@ -176,14 +179,14 @@ def test_payment_method_must_belong_to_cart_owner(client, db, payable_cart):
     response = client.post(f'/carts/{payable_cart.cart.id}/payments',
                            json={'payment_method_id': str(stranger_method.id)})
     assert response.status_code == 400
-    assert response.json['error']['code'] == 'PAYMENT_METHOD_NOT_FOUND'
+    assert response.json()['error']['code'] == 'PAYMENT_METHOD_NOT_FOUND'
 
 
 def test_payment_with_malformed_payment_method_id(client, payable_cart):
     response = client.post(f'/carts/{payable_cart.cart.id}/payments',
                            json={'payment_method_id': 'not-a-uuid'})
     assert response.status_code == 400
-    assert response.json['error']['code'] == 'VALIDATION_ERROR'
+    assert response.json()['error']['code'] == 'VALIDATION_ERROR'
 
 
 # --- provider failures ------------------------------------------------------
@@ -195,7 +198,7 @@ def test_payment_declined_by_provider(client, db, payable_cart):
 
     response = client.post(f'/carts/{payable_cart.cart.id}/payments')
     assert response.status_code == 402
-    assert response.json['error']['code'] == 'PAYMENT_FAILED'
+    assert response.json()['error']['code'] == 'PAYMENT_FAILED'
 
     # the failed attempt is recorded and the cart stays payable
     payment = db.query(Payment).filter_by(cart_id=payable_cart.cart.id).one()
@@ -217,7 +220,7 @@ def test_payment_retry_after_decline_can_succeed(client, db, payable_cart):
     db.commit()
     response = client.post(f'/carts/{payable_cart.cart.id}/payments')
     assert response.status_code == 201
-    assert response.json['status'] == PaymentStatus.SUCCEEDED
+    assert response.json()['status'] == PaymentStatus.SUCCEEDED
 
     attempts = db.query(Payment).filter_by(cart_id=payable_cart.cart.id).all()
     assert sorted(attempt.status for attempt in attempts) == [PaymentStatus.FAILED,

@@ -1,0 +1,222 @@
+openapi: 3.0.3
+info:
+  title: Payment Endpoint
+  version: 1.0.0
+  description: |
+    Payment part of the online shop: starts the payment for a cart using a
+    mock payment provider.
+
+    ## Error format
+    All errors (including request-validation errors) use a consistent shape:
+
+    ```json
+    {"error": {"code": "SOME_CODE", "message": "Human readable message"}}
+    ```
+
+    ## Notes
+    - The mock provider (`payment_api/services/provider.py`) is deterministic:
+      any provider token containing the fail marker (default `fail`) is
+      declined, every other token succeeds.
+    - A cart can be paid only once; a declined attempt is recorded and the
+      cart stays `active`, so retrying the same request is safe.
+servers:
+  - url: /
+tags:
+  - name: health
+  - name: payments
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check (public)
+      operationId: payment_api.api.base.health
+      responses:
+        '200':
+          description: API is up and the database is reachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example: {"status": "Healthy", "version": "1.0.0"}
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /carts/{cart_id}/payments:
+    post:
+      tags: [payments]
+      summary: Start the payment for a cart
+      description: |
+        Charges the user's saved card for the total of the cart.
+
+        Flow: the cart is locked for the whole attempt; carts that are
+        already checked out or abandoned are rejected; the total is computed
+        from the cart items (`unit_price` is frozen on the cart item row);
+        the explicit `payment_method_id` (which must belong to the cart's
+        owner) or the user's default payment method is charged through the
+        mock provider. On success the payment is `succeeded` and the cart
+        becomes `checked_out` in the same transaction; on decline the
+        payment is recorded as `failed` and the cart stays `active`, so the
+        request can be retried (e.g. after the card is fixed).
+
+        The request body is optional — without it the user's default payment
+        method is charged.
+      operationId: payment_api.api.payments.start_payment
+      parameters:
+        - name: cart_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentStartRequest'
+            example: {"payment_method_id": "11111111-2222-3333-4444-555555555555"}
+      responses:
+        '201':
+          description: Payment succeeded; the cart is now checked out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+              example:
+                payment_id: 8f956eaa-e61c-44c0-ba18-6a22e3987f62
+                cart_id: c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1
+                user_id: 11111111-1111-1111-1111-111111111111
+                amount: "70.00"
+                currency: USD
+                status: succeeded
+                provider: mock
+                provider_reference: mock_charge_db03229d3bd64d2b8a242fcaf806b551
+                created_at: "2026-11-05T12:49:27.751686+00:00"
+        '400':
+          description: Invalid request, empty cart or no usable payment method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                empty_cart:
+                  value: {"error": {"code": "EMPTY_CART", "message": "Cart has no items"}}
+                no_payment_method:
+                  value: {"error": {"code": "NO_PAYMENT_METHOD", "message": "User has no payment method on file"}}
+                payment_method_not_found:
+                  value: {"error": {"code": "PAYMENT_METHOD_NOT_FOUND", "message": "Payment method not found for this user"}}
+                validation_error:
+                  value: {"error": {"code": "VALIDATION_ERROR", "message": "'not-a-uuid' is not a valid payment_method_id"}}
+        '402':
+          description: The payment provider declined the charge (the failed attempt is recorded; the cart stays active)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example: {"error": {"code": "PAYMENT_FAILED", "message": "The payment provider declined the charge"}}
+        '404':
+          description: Cart not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example: {"error": {"code": "CART_NOT_FOUND", "message": "Cart not found"}}
+        '409':
+          description: The cart cannot be paid (already checked out, abandoned or mixed currencies)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                already_checked_out:
+                  value: {"error": {"code": "CART_ALREADY_CHECKED_OUT", "message": "Cart has already been paid for"}}
+                not_payable:
+                  value: {"error": {"code": "CART_NOT_PAYABLE", "message": "Cart is abandoned and cannot be paid"}}
+                mixed_currencies:
+                  value: {"error": {"code": "MIXED_CURRENCIES", "message": "Cart items use more than one currency; cannot charge a single payment"}}
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: Healthy
+        version:
+          type: string
+          example: 1.0.0
+
+    PaymentStartRequest:
+      type: object
+      # the body may be omitted entirely — the user's default payment
+      # method is charged then (the handler receives body=None)
+      nullable: true
+      additionalProperties: false
+      properties:
+        payment_method_id:
+          type: string
+          format: uuid
+          description: Which saved card to charge; defaults to the user's default payment method
+          example: 11111111-2222-3333-4444-555555555555
+
+    Payment:
+      type: object
+      properties:
+        payment_id:
+          type: string
+          format: uuid
+        cart_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+          description: Money is serialized as a string to avoid float rounding
+          example: "70.00"
+        currency:
+          type: string
+          example: USD
+        status:
+          type: string
+          enum: [pending, succeeded, failed]
+          example: succeeded
+        provider:
+          type: string
+          example: mock
+        provider_reference:
+          type: string
+          nullable: true
+          description: Provider's charge reference (only on success)
+          example: mock_charge_7f2bfaf68a4d43fb94e709542108a72d
+        created_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: SOME_CODE
+            message:
+              type: string
+              example: Human readable message
+
+  responses:
+    InternalError:
+      description: Unexpected server error (no internal details are leaked)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example: {"error": {"code": "INTERNAL_ERROR", "message": "An unexpected internal error occurred"}}

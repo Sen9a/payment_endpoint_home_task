@@ -6,7 +6,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, text
 
-from payment_api.app import create_app
+from payment_api.app import create_connexion_app
 from payment_api.database.db import db_session
 from tests.factories import (CartFactory, CartItemFactory, PaymentMethodFactory,
                              ProductFactory, UserFactory)
@@ -57,17 +57,17 @@ def clean_tables(database):
 
 
 @pytest.fixture
-def app(database):
-    return create_app(extra_config={'DATABASE_URI': TEST_DATABASE_URI})
+def connexion_app(database):
+    return create_connexion_app(extra_config={'DATABASE_URI': TEST_DATABASE_URI})
 
 
 @pytest.fixture
-def client(app):
-    return app.test_client()
+def client(connexion_app):
+    return connexion_app.test_client()
 
 
 @pytest.fixture
-def db(app):
+def db(connexion_app):
     for model_factory in (UserFactory, ProductFactory, CartFactory,
                           CartItemFactory, PaymentMethodFactory):
         model_factory._meta.sqlalchemy_session = db_session

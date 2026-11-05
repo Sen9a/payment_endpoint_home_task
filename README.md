@@ -4,8 +4,10 @@ Payment part of the online shop take-home task: a Flask + SQLAlchemy 2.0
 HTTP endpoint that starts the payment for a cart, backed by PostgreSQL
 with Alembic migrations and a mock payment provider.
 
-Built with Flask 3, pure SQLAlchemy 2.0 (typed `Mapped` models, scoped
-session) and plain Alembic. Dependency management via Poetry.
+Built with Flask 3 + Connexion 3 (routing, request validation and Swagger
+UI are driven by `payment_api/openapi/api.yaml`), pure SQLAlchemy 2.0
+(typed `Mapped` models, scoped session) and plain Alembic. Dependency
+management via Poetry.
 
 ## What was built
 
@@ -15,11 +17,16 @@ session) and plain Alembic. Dependency management via Poetry.
    (`b5e0a1c2d3f4_base_schema.py`, taken verbatim from the task-provided
    `SQLMigrations.sql`).
 2. **HTTP endpoint** — `POST /carts/<cart_id>/payments` starts the payment
-   for a cart (`payment_api/api/payments.py`).
+   for a cart (spec: `payment_api/openapi/api.yaml`, handler:
+   `payment_api/api/payments.py`).
 3. **Mock payment provider** — `payment_api/services/provider.py`.
 4. **Tests** — pytest suite in `tests/`, running against a real PostgreSQL.
 
 ## The endpoint
+
+Declared in `payment_api/openapi/api.yaml` — Connexion uses it for routing
+and request validation (e.g. a non-UUID `cart_id` is rejected with 400
+`VALIDATION_ERROR` before the handler runs).
 
 ```
 POST /carts/<cart_id>/payments
@@ -138,6 +145,12 @@ curl -X POST http://127.0.0.1:8080/carts/c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1/pa
 # 409 CART_ALREADY_CHECKED_OUT — a retry never charges twice
 ```
 
+## Swagger UI
+
+- http://127.0.0.1:8080/ui — interactive Swagger UI
+- http://127.0.0.1:8080/docs — redirects to `/ui`
+- http://127.0.0.1:8080/openapi.json — the raw spec
+
 ## Run locally
 
 Requires a PostgreSQL server (or just the `db` compose service:
@@ -195,8 +208,9 @@ payment_api/
 ├── managers/              # cart, payment_method, payment
 │                          #   (persistence only — select / add / commit)
 ├── services/              # payment (orchestration), cart_total, provider (mock), health
-├── validators/            # payment_method_id format
+├── validators/            # cart_id / payment_method_id format
 ├── data_classes/          # PaymentDetails / CartTotal / ProviderChargeResult DTOs
+├── openapi/api.yaml       # OpenAPI 3 spec (routing + validation + Swagger UI)
 └── api/                   # base (health), payments handlers
 │                          #   (request/response adapters only — no logic)
 tests/                     # pytest + factory-boy

@@ -44,3 +44,13 @@ class PaymentStatus:
 
 
 PROVIDER_NAME = 'mock'
+
+STATUS_TO_CODE = {
+    400: ErrorCode.VALIDATION_ERROR,
+    401: 'UNAUTHORIZED',
+    403: 'FORBIDDEN',
+    404: ErrorCode.NOT_FOUND,
+    405: ErrorCode.METHOD_NOT_ALLOWED,
+    415: 'UNSUPPORTED_MEDIA_TYPE',
+    500: ErrorCode.INTERNAL_ERROR,
+}
