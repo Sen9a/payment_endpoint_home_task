@@ -1,4 +1,4 @@
-.PHONY: help install db-base db-upgrade db-migrate run test build up down logs clean
+.PHONY: help install db-upgrade db-migrate run test build up down logs clean
 
 PYTEST ?= .venv/bin/pytest
 
@@ -10,10 +10,7 @@ help: ## Show this help
 install: ## Install dependencies with Poetry
 	poetry install
 
-db-base: ## Apply the task's base schema (SQLMigrations.sql) to the local DB
-	docker compose exec -T db psql -U postgres -d payment_shop < SQLMigrations.sql
-
-db-upgrade: ## Apply Alembic migrations (adds the payments table)
+db-upgrade: ## Apply Alembic migrations (base schema + payments table)
 	.venv/bin/alembic upgrade head
 
 db-migrate: ## Autogenerate a new migration after model changes (MSG="...")

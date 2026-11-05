@@ -12,7 +12,6 @@ from tests.factories import (CartFactory, CartItemFactory, PaymentMethodFactory,
                              ProductFactory, UserFactory)
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BASE_SQL_FILE = os.path.join(ROOT_DIR, 'SQLMigrations.sql')
 ALEMBIC_INI = os.path.join(ROOT_DIR, 'alembic.ini')
 
 TEST_DATABASE_URI = os.environ.get(
@@ -32,19 +31,9 @@ def _reset_schema(engine) -> None:
         conn.execute(text('CREATE SCHEMA public'))
 
 
-def _apply_base_schema(engine) -> None:
-    """Apply the task's base schema file (SQLMigrations.sql)."""
-    with open(BASE_SQL_FILE) as sql_file:
-        statements = [statement.strip()
-                      for statement in sql_file.read().split(';')]
-    with engine.begin() as conn:
-        for statement in statements:
-            if statement:
-                conn.exec_driver_sql(statement)
-
-
 def _run_migrations() -> None:
-    """Apply the payments-table migration through the real Alembic path."""
+    """Build the whole schema through the real Alembic path (base schema
+    migration + payments-table migration)."""
     alembic_cfg = Config(ALEMBIC_INI)
     alembic_cfg.set_main_option('sqlalchemy.url', TEST_DATABASE_URI)
     command.upgrade(alembic_cfg, 'head')
@@ -54,7 +43,6 @@ def _run_migrations() -> None:
 def database():
     engine = create_engine(TEST_DATABASE_URI)
     _reset_schema(engine)
-    _apply_base_schema(engine)
     _run_migrations()
     yield engine
     engine.dispose()

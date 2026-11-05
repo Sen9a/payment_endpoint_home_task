@@ -8,10 +8,9 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      # initdb scripts run once on first boot: create the test database,
-      # then apply the task's base schema (users/products/carts/...)
+      # initdb script runs once on first boot: create the database used by
+      # the pytest suite (the schema itself comes from Alembic migrations)
       - ./compose/db/00_create_test_db.sql:/docker-entrypoint-initdb.d/00_create_test_db.sql:ro
-      - ./SQLMigrations.sql:/docker-entrypoint-initdb.d/10_base_schema.sql:ro
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d payment_shop"]

@@ -11,7 +11,9 @@ session) and plain Alembic. Dependency management via Poetry.
 
 1. **SQL schema for payments** — the `payments` table, added as an Alembic
    migration (`migrations/versions/f3a9c1d2e4b5_add_payments_table.py`) on
-   top of the provided base schema (`SQLMigrations.sql`).
+   top of the base schema, which is itself a migration
+   (`b5e0a1c2d3f4_base_schema.py`, taken verbatim from the task-provided
+   `SQLMigrations.sql`).
 2. **HTTP endpoint** — `POST /carts/<cart_id>/payments` starts the payment
    for a cart (`payment_api/api/payments.py`).
 3. **Mock payment provider** — `payment_api/services/provider.py`.
@@ -112,15 +114,17 @@ after a decline stay possible. Indexed on `cart_id` and `user_id`.
   second charge (enforced by the cart row lock and the partial unique
   index).
 - **Stock handling** is out of scope (payment part only).
-- **Schema split.** The provided `SQLMigrations.sql` stays untouched as
-  the base schema; the payments table is added as a new Alembic migration,
-  as the task requires.
+- **Schema as migrations.** The whole schema lives in Alembic: the first
+  migration applies the task-provided `SQLMigrations.sql` verbatim
+  (including its sample data), and the payments table is added as a new
+  migration on top, as the task requires. `alembic upgrade head` therefore
+  works on an empty database.
 
 ## Run with Docker (recommended)
 
 ```bash
-docker compose up --build        # Postgres + API; base schema applied on
-                                 # first boot, payments migration at start
+docker compose up --build        # Postgres + API; migrations (base schema
+                                 # + payments) run automatically at start
 ```
 
 The API is on http://127.0.0.1:8080. Try it with the seeded sample data:
@@ -141,8 +145,7 @@ Requires a PostgreSQL server (or just the `db` compose service:
 
 ```bash
 poetry install
-make db-base          # apply SQLMigrations.sql once (base schema + seeds)
-make db-upgrade       # alembic upgrade head (adds the payments table)
+make db-upgrade       # alembic upgrade head (base schema + payments table)
 make run              # serves on http://0.0.0.0:8080 (PORT env var to change)
 ```
 
@@ -154,7 +157,8 @@ make test             # starts the db container if needed, then pytest -v
 
 The suite runs against a real PostgreSQL database (`payment_shop_test`,
 created by the compose init scripts; override with `TEST_DATABASE_URI`).
-It rebuilds the schema from `SQLMigrations.sql` + `alembic upgrade head`
+It rebuilds the schema through the real migration path (`alembic upgrade
+head`: base schema + payments table)
 and truncates all tables between tests. It covers: the success path,
 total calculation (quantities, frozen `unit_price`), exact public response
 shape, every cart-state rejection (missing / checked-out / abandoned /
@@ -176,9 +180,10 @@ active), and a successful retry after a decline.
 
 ```
 server.py                  # dev entry point
-SQLMigrations.sql          # provided base schema (applied once, untouched)
+SQLMigrations.sql          # provided base schema (reference; applied verbatim
+                           #   by the first Alembic migration)
 alembic.ini
-migrations/                # Alembic env + the payments-table migration
+migrations/                # Alembic env + base-schema and payments migrations
 payment_api/
 ├── app.py                 # create_app factory
 ├── settings.py            # flat env-driven config

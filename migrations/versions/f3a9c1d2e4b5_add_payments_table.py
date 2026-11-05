@@ -1,11 +1,10 @@
 """Add the payments table.
 
-The base shop schema (users, products, carts, cart_items,
-user_payment_methods) is applied separately via SQLMigrations.sql; this is
-the new migration for the payment part designed in this task.
+Builds on the base shop schema (users, products, carts, cart_items,
+user_payment_methods) from the previous migration.
 
 Revision ID: f3a9c1d2e4b5
-Revises:
+Revises: b5e0a1c2d3f4
 Create Date: 2026-11-05
 
 """
@@ -16,7 +15,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = 'f3a9c1d2e4b5'
-down_revision: str | Sequence[str] | None = None
+down_revision: str | Sequence[str] | None = 'b5e0a1c2d3f4'
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
