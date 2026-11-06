@@ -18,7 +18,8 @@ if TYPE_CHECKING:
 class Cart(Base):
     __tablename__ = 'carts'
     __table_args__ = (
-        CheckConstraint(f"status IN ('{CartStatus.ACTIVE}', '{CartStatus.CHECKED_OUT}', "
+        CheckConstraint(f"status IN ('{CartStatus.ACTIVE}', "
+                        f"'{CartStatus.CHECKED_OUT}', "
                         f"'{CartStatus.ABANDONED}')"),
         Index('idx_carts_user_id', 'user_id'),
     )

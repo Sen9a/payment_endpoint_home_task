@@ -1,8 +1,6 @@
 import uuid
-from decimal import Decimal
 
-from flask import current_app
-
+from payment_api import settings
 from payment_api.data_classes import ProviderChargeResult
 
 
@@ -15,8 +13,8 @@ class MockPaymentProvider:
     """
 
     @staticmethod
-    def charge(provider_token: str, amount: Decimal, currency: str) -> ProviderChargeResult:
-        fail_marker = current_app.config['PROVIDER_FAIL_TOKEN_MARKER']
+    def charge(provider_token: str) -> ProviderChargeResult:
+        fail_marker = settings.PROVIDER_FAIL_TOKEN_MARKER
         if fail_marker in provider_token:
             return ProviderChargeResult(
                 success=False,

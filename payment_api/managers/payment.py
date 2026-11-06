@@ -1,18 +1,18 @@
-import uuid
-from typing import Optional
+from typing import  Any
 
-from sqlalchemy import select
 
 from payment_api.database.db import db_session
-from payment_api.models.payment import Payment
+from payment_api.models import Payment
 
 
 class PaymentManager:
     """Persistence for payments — no business logic here."""
+    model = Payment
 
-    @staticmethod
-    def add(payment: Payment) -> Payment:
+    @classmethod
+    def add(cls, payment_payload: dict[str, Any]) -> Payment:
         """Stage a new payment row (flushed, not committed)."""
+        payment = cls.model(**payment_payload)
         db_session.add(payment)
         db_session.flush()
         return payment

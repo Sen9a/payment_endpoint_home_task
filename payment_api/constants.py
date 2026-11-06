@@ -1,7 +1,8 @@
 """Error codes, messages and shared domain constants."""
+from enum import StrEnum
 
 
-class ErrorCode:
+class ErrorCode(StrEnum):
     BAD_REQUEST = 'BAD_REQUEST'
     VALIDATION_ERROR = 'VALIDATION_ERROR'
     CART_NOT_FOUND = 'CART_NOT_FOUND'
@@ -18,7 +19,7 @@ class ErrorCode:
     INTERNAL_ERROR = 'INTERNAL_ERROR'
 
 
-class ErrorMessage:
+class ErrorMessage(StrEnum):
     CART_NOT_FOUND = 'Cart not found'
     CART_NOT_PAYABLE = 'Cart is abandoned and cannot be paid'
     CART_ALREADY_CHECKED_OUT = 'Cart has already been paid for'
@@ -31,13 +32,13 @@ class ErrorMessage:
     INTERNAL_ERROR = 'An unexpected internal error occurred'
 
 
-class CartStatus:
+class CartStatus(StrEnum):
     ACTIVE = 'active'
     CHECKED_OUT = 'checked_out'
     ABANDONED = 'abandoned'
 
 
-class PaymentStatus:
+class PaymentStatus(StrEnum):
     PENDING = 'pending'
     SUCCEEDED = 'succeeded'
     FAILED = 'failed'

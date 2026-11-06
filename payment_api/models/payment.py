@@ -25,7 +25,8 @@ class Payment(Base):
     """
     __tablename__ = 'payments'
     __table_args__ = (
-        CheckConstraint(f"status IN ('{PaymentStatus.PENDING}', '{PaymentStatus.SUCCEEDED}', "
+        CheckConstraint(f"status IN ('{PaymentStatus.PENDING}', "
+                        f"'{PaymentStatus.SUCCEEDED}', "
                         f"'{PaymentStatus.FAILED}')"),
         CheckConstraint('amount >= 0'),
         Index('idx_payments_cart_id', 'cart_id'),

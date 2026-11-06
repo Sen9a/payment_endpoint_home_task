@@ -5,14 +5,6 @@ from decimal import Decimal
 
 
 @dataclass
-class CartTotal:
-    """How much to charge for a cart, as produced by the total-calculation
-    service (see payment_api.services.cart_total)."""
-    amount: Decimal
-    currency: str
-
-
-@dataclass
 class PaymentDetails:
     """Public representation of a payment attempt."""
     payment_id: uuid.UUID
@@ -44,7 +36,6 @@ class PaymentDetails:
             'payment_id': str(self.payment_id),
             'cart_id': str(self.cart_id),
             'user_id': str(self.user_id),
-            # money is serialized as a string to avoid float rounding
             'amount': f'{self.amount:.2f}',
             'currency': self.currency,
             'status': self.status,

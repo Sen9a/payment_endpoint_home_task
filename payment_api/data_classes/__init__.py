@@ -1,4 +1,5 @@
-from payment_api.data_classes.payment import CartTotal, PaymentDetails
-from payment_api.data_classes.provider import ProviderChargeResult
+from .payment import PaymentDetails
+from .provider import ProviderChargeResult
+from .cart import CartTotal
 
 __all__ = ['CartTotal', 'PaymentDetails', 'ProviderChargeResult']

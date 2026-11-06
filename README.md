@@ -40,7 +40,7 @@ Flow (`payment_api/services/payment.py`):
    (`SELECT ... FOR UPDATE`) for the whole attempt.
 2. Reject carts that are already `checked_out` (409
    `CART_ALREADY_CHECKED_OUT`) or `abandoned` (409 `CART_NOT_PAYABLE`).
-3. Compute the total from the cart items (400 `EMPTY_CART`,
+3. Get the total from the total-calculation service (400 `EMPTY_CART`,
    409 `MIXED_CURRENCIES`).
 4. Pick the card: the explicit `payment_method_id` (must belong to the
    cart's owner, 400 `PAYMENT_METHOD_NOT_FOUND`) or the user's default
@@ -105,10 +105,18 @@ after a decline stay possible. Indexed on `cart_id` and `user_id`.
 - **No authentication.** The task lists the user account as an existing
   part of the system and asks only for the payment part, so the endpoint
   is unauthenticated and derives the user from the cart.
-- **Total calculation.** The "payment total calculation service" is given
-  as existing; it is represented here by `CartTotalService`, which sums
-  `quantity * unit_price` over the cart items (`unit_price` is frozen on
-  the cart row, so later product price changes do not affect the charge).
+- **Total calculation.** The task lists the "payment total calculation
+  service" as an existing part of the system and says we don't need to
+  calculate how much to pay — but neither that service nor a `total`
+  column on `carts` is actually provided, so the amount has to come from
+  somewhere. It is represented here by `CartTotalService`
+  (`payment_api/services/cart_total.py`): the only place that computes a
+  total, summing `quantity * unit_price` over the cart items
+  (`unit_price` is frozen on the cart item row, so later product price
+  changes do not affect the charge). `PaymentService` never calculates
+  anything itself — it consumes the `CartTotal` the service returns, and
+  the real service can replace the stand-in without touching the payment
+  flow.
 - **Single currency per cart.** All items in a cart must share one
   currency; a mixed cart is rejected with 409 `MIXED_CURRENCIES` rather
   than silently converting.
@@ -145,6 +153,15 @@ curl -X POST http://127.0.0.1:8080/carts/c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1/pa
 # 409 CART_ALREADY_CHECKED_OUT — a retry never charges twice
 ```
 
+For repeated demos, `scripts/seed_demo_cart.py` creates a fresh payable
+cart (new demo user, default card and items) on every run and prints the
+ready-to-use curl command; `--fail` seeds a declining card instead:
+
+```bash
+.venv/bin/python scripts/seed_demo_cart.py         # charge succeeds
+.venv/bin/python scripts/seed_demo_cart.py --fail  # 402 decline path
+```
+
 ## Swagger UI
 
 - http://127.0.0.1:8080/ui — interactive Swagger UI
@@ -179,6 +196,11 @@ empty / mixed currencies), payment-method rules (missing default, foreign
 method, malformed id), provider declines (recorded failure, cart stays
 active), and a successful retry after a decline.
 
+`unit_tests/` complements it with fast, database-free unit tests (pytest
+fixtures + `unittest.mock`): the mock provider's marker logic, the
+total-calculation math, every validator, and the `PaymentService`
+orchestration with all collaborators mocked.
+
 ## Configuration (environment variables)
 
 | Variable                    | Default                                                | Purpose                              |
@@ -205,14 +227,16 @@ payment_api/
 ├── error_handlers.py      # consistent JSON error responses
 ├── database/db.py         # engine + scoped session + Base (pure SQLAlchemy)
 ├── models/                # User, Product, Cart, CartItem, UserPaymentMethod, Payment
-├── managers/              # cart, payment_method, payment
+├── managers/              # cart, payment_method, payment, health_check
 │                          #   (persistence only — select / add / commit)
 ├── services/              # payment (orchestration), cart_total, provider (mock), health
-├── validators/            # cart_id / payment_method_id format
+├── validators/            # all input/business validation — the only layer
+│                          #   that raises API errors
 ├── data_classes/          # PaymentDetails / CartTotal / ProviderChargeResult DTOs
 ├── openapi/api.yaml       # OpenAPI 3 spec (routing + validation + Swagger UI)
 └── api/                   # base (health), payments handlers
 │                          #   (request/response adapters only — no logic)
-tests/                     # pytest + factory-boy
+tests/                     # endpoint tests: pytest + factory-boy, real PostgreSQL
+unit_tests/                # database-free unit tests (fixtures + unittest.mock)
 compose/                   # Dockerfile, entrypoint, db init scripts
 ```
