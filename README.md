@@ -138,8 +138,19 @@ after a decline stay possible. Indexed on `cart_id` and `user_id`.
 ## Run with Docker (recommended)
 
 ```bash
-docker compose up --build        # Postgres + API; migrations (base schema
-                                 # + payments) run automatically at start
+make up                     # or: docker compose up --build
+                            # Postgres + API; migrations (base schema
+                            # + payments) run automatically at start
+```
+
+Useful variations:
+
+```bash
+make up-db                  # only Postgres (e.g. for local development)
+make up-api                 # only the API container
+make down                   # stop the stack
+make logs                   # follow the API logs
+make help                   # list every available target
 ```
 
 The API is on http://127.0.0.1:8080. Try it with the seeded sample data:
